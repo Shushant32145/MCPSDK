@@ -83,9 +83,26 @@ def register_api_docs_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="get_api_documentation",
         description=(
-            "Fetch Pine Labs API documentation for a specific API. "
-            "Returns the markdown documentation for the given api_name. "
-            "Use 'list_pinelabs_apis' first to discover available names."
+            "Fetch the OFFICIAL Pine Labs SDK documentation for a specific "
+            "API by api_name. This is the SINGLE SOURCE OF TRUTH for the "
+            "Pine Labs SDK.\n\n"
+            "STRICT RULES — you MUST follow these when answering the user:\n"
+            "1. Use ONLY the content returned by this tool. Do NOT add, "
+            "infer, translate, or invent any API names, parameters, return "
+            "types, error variants, or code examples that are not present "
+            "in the returned markdown.\n"
+            "2. The documentation lists supported languages explicitly "
+            "(e.g. kotlin, python, swift). If the user asks about a "
+            "language NOT listed (e.g. C++, Java, JavaScript, Go, Rust), "
+            "reply that Pine Labs SDK does not document that language and "
+            "stop — do NOT generate sample code in unsupported languages.\n"
+            "3. If the user asks for a parameter, error, or behavior that "
+            "is not in the returned doc, say 'not documented' instead of "
+            "guessing.\n"
+            "4. Quote field names, types and error variants verbatim from "
+            "the returned JSON spec.\n"
+            "5. If unsure which api_name to use, call 'list_pinelabs_apis' "
+            "first; never guess an api_name."
         ),
     )
     async def get_api_documentation(api_name: str) -> dict[str, Any]:
@@ -109,7 +126,27 @@ def register_api_docs_tools(mcp: FastMCP) -> None:
                 f"Error reading documentation for '{api_name}': {exc}"
             )
         logger.info("Returning %d chars of documentation for '%s'", len(doc), api_name)
-        return _text_response(doc)
+
+        wrapped = (
+            "=== AUTHORITATIVE PINE LABS SDK DOCUMENTATION ===\n"
+            f"api_name: {api_name}\n"
+            f"source_file: {md_path.relative_to(DOCS_ROOT.parent).as_posix()}\n"
+            "\n"
+            "RULES FOR THE ASSISTANT (do NOT ignore):\n"
+            "- Answer ONLY using facts present below. If a detail is "
+            "missing, say it is not documented.\n"
+            "- The 'examples' array enumerates every supported language. "
+            "Do NOT produce code in any language not listed there "
+            "(e.g. C++, Java, JS, Go, Rust are NOT supported).\n"
+            "- Do NOT invent parameter names, error variants, or return "
+            "types that are not in the spec below.\n"
+            "- Quote identifiers verbatim.\n"
+            "\n"
+            "--- BEGIN DOCUMENTATION ---\n"
+            f"{doc}\n"
+            "--- END DOCUMENTATION ---\n"
+        )
+        return _text_response(wrapped)
 
 
 # Register tools on the module-level mcp instance
